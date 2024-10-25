@@ -4,7 +4,7 @@
 #define BUF_MAX 256
 
 enum Type {
-  LOGIC, OPERATION
+  LOGIC, OPERATION, REDIRECT
 };
 
 typedef struct node {
@@ -28,11 +28,30 @@ node* parse_continue_expr(int* i, char** commands);
 node* parse_or_expr(int* i, char** commands);
 node* parse_and_expr(int* i, char** commands);
 node* parse_command_expr(int *i, char** commands);
+node* parse_redirect_expr(int* i, char** commands);
 
 node* parse(char** commands){
   printf("start parsing \n");
   int i = 0;
-  return parse_continue_expr(&i, commands);
+  return parse_redirect_expr(&i, commands);
+}
+
+int is_redirect(const char* c){
+  return !strcmp(c, "|") || !strcmp(c, ">") || !strcmp(c, "<");
+}
+
+node* parse_redirect_expr(int *i, char** commands){
+  printf("start > | parsing \n");
+  node* left = parse_continue_expr(i, commands);
+  printf("stop parsing ; \n");
+  while (commands[*i] != NULL && is_redirect(commands[*i])){
+    char* op = malloc(strlen(commands[*i]));
+    strcpy(op, commands[*i]);
+    (*i)++;
+    node* right = parse_redirect_expr(i, commands);
+    left = create_node(REDIRECT, op, NULL, left, right);
+  }
+  return left;
 }
 
 node* parse_continue_expr(int* i, char** commands){
@@ -79,7 +98,7 @@ node* parse_command_expr(int *i, char** commands){
 }
 
 void print_tree(node* root){
-  if (root -> type == LOGIC){
+  if (root -> type == LOGIC || root -> type == REDIRECT){
     print_tree(root->left);
     printf(" %s ", root -> op);
     print_tree(root -> right);
@@ -97,7 +116,7 @@ int is_spec (const char c){
 char** split(const char* s){
   int n = 0;
   for (int i = 0; s[i] != '\0'; i++){
-    if (s[i] == '|' || s[i] == '&' || s[i] == ';'){
+    if (is_spec(s[i])){
       n++;
       while(s[i] == '|' || s[i] == '&'){
         i++;
@@ -115,7 +134,7 @@ char** split(const char* s){
   char* tmp = malloc(tmp_size);
   int tmp_i = 0;
   for (int i = 0; s[i] != '\0'; i++){
-    if (is_spec(s[i]) || (is_spec(tmp[0]) && !is_spec(s[i]))){
+    if ((is_spec(s[i]) && !is_spec(tmp[0])) || (is_spec(tmp[0]) && !is_spec(s[i]))){
       tmp[tmp_i] = '\0';
       array[array_i] = (char*)malloc(tmp_i);
       strcpy(array[array_i++], tmp);
