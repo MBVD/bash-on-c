@@ -36,10 +36,10 @@ node* parse(char** commands){
 }
 
 node* parse_continue_expr(int* i, char** commands){
-  printf("start ; prasing \n");
+  printf("start ; parsing \n");
   node* left = parse_or_expr(i, commands);
   printf("stop parsing || \n");
-  while(commands[*i] != NULL && !strcmp(commands[*i], ';')){
+  while(commands[*i] != NULL && !strcmp(commands[*i], ";")){
     (*i)++;
     node* right = parse_continue_expr(i, commands);
     left = create_node(LOGIC, ";", NULL, left, right);
@@ -90,6 +90,10 @@ void print_tree(node* root){
 }
 
 
+int is_spec (const char c){
+  return (c == '|' || c == '&' || c == ';' || c == '>' || c == '<');
+}
+
 char** split(const char* s){
   int n = 0;
   for (int i = 0; s[i] != '\0'; i++){
@@ -111,17 +115,22 @@ char** split(const char* s){
   char* tmp = malloc(tmp_size);
   int tmp_i = 0;
   for (int i = 0; s[i] != '\0'; i++){
+    if (is_spec(s[i]) || (is_spec(tmp[0]) && !is_spec(s[i]))){
+      tmp[tmp_i] = '\0';
+      array[array_i] = (char*)malloc(tmp_i);
+      strcpy(array[array_i++], tmp);
+      tmp_i = 0;
+      while (s[i] == ' ') i++; // скипаю все пробелы
+      tmp[tmp_i++] = s[i];
+      continue;
+    }
     if (s[i] == ' '){
-      while (s[i+1] == ' ') i++; // скипаем пробелы 
-      if (s[i + 1] == ';' || s[i + 1] == '&' || s[i + 1] == '|' || tmp[0] == ';' || tmp[0] == '|' || tmp[0] == '&'){ // если следующий или текущий сиимвол будет логический то надо закончить строку
-        tmp[tmp_i] = '\0';
-        array[array_i] = (char*)malloc(tmp_i);
-        strcpy(array[array_i++], tmp);
-        tmp_i = 0;
+      while (s[i+1] == ' ') i++; // скипаю все пробелы
+      if (is_spec(s[i + 1])){
+        continue;
       }else{
         tmp[tmp_i++] = ' ';
       }
-      continue;
     }
     tmp[tmp_i++] = s[i];
     if (tmp_i >= tmp_size){
@@ -160,4 +169,5 @@ int main(){
   printf("\n");
   node* tree = parse(splited);
   print_tree(tree);
+  printf("\n");
 }
