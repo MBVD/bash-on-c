@@ -179,6 +179,56 @@ char* readline(){
   return buf;
 }
 
+int execute_command(const char* command) {
+  int status;
+  pid_t pid = fork();
+  if (pid == 0) {
+    execlp(command, command, (char*)NULL);
+    exit(EXIT_FAILURE);
+  } else if (pid < 0) {
+    perror("fork creation fail");
+    return -1;
+  } else {
+    waitpid(pid, &status, 0);
+    if (WIFEXITED(status)) {
+      return WEXITSTATUS(status);
+    } else {
+      return -1;
+    }
+  }
+}
+
+int execute_tree(node* root) {
+  if (root == NULL) return 0;
+
+  if (root->type == OPERATION) {
+    return execute_command(root->command);
+  } else if (root->type == LOGIC) {
+    int left_status = execute_tree(root->left);
+    if (!strcmp(root->op, "&&")) {
+      if (left_status == 0) {
+        return execute_tree(root->right);
+      } else {
+        return left_status;
+      }
+    } else if (!strcmp(root->op, "||")) {
+      if (left_status != 0) {
+        return execute_tree(root->right);
+      } else {
+        return left_status;
+      }
+    } else if (!strcmp(root->op, ";")) {
+      execute_tree(root->left);
+      return execute_tree(root->right);
+    }
+  } else if (root->type == REDIRECT) {
+    if (!strcmp(root->op, "|")){
+      
+    }
+  }
+  return 0;
+}
+
 int main(){
   char* s1 = readline();
   char** splited = split(s1);
@@ -189,4 +239,5 @@ int main(){
   node* tree = parse(splited);
   print_tree(tree);
   printf("\n");
+  execute_tree(tree);
 }
