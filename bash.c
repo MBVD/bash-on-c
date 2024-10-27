@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #define BUF_MAX 256
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 
@@ -278,11 +281,39 @@ int execute_tree(node* root) {
         dup2(pipefd[1], STDOUT_FILENO);
         close(pipefd[1]);
         execute_tree(root->left);
-        exit(0);
+        exit(1);
       } else { // родительский процесс
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
+        execute_tree(root->right);
+        wait(NULL);
+        return;
+      }
+    }
+    if (!strcmp(root->op, ">")){
+      pid_t cpid = fork();
+      if (cpid == 0){ // дочерний
+        int file = open(root->right->command, O_WRONLY | O_CREAT | O_TRUNC, 0644);;
+        printf("%d \n", file);
+        dup2(file, STDOUT_FILENO);
+        close(file);
+        execute_tree(root->left);
+      } else {
+        execute_tree(root->right);
+        wait(NULL);
+        return;
+      }
+    }
+    if (!strcmp(root->op, "<")){
+      pid_t cpid = fork();
+      if (cpid == 0){ // дочерний
+        int file = open(root->right->command, O_RDONLY, 0644);
+        dup2(file, STDIN_FILENO);
+        close(file);
+        execute_tree(root->left);
+        exit(1);
+      } else {
         execute_tree(root->right);
         wait(NULL);
         return;
