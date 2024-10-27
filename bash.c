@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #define BUF_MAX 256
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 
@@ -264,7 +268,25 @@ int execute_tree(node* root) {
     }
   } else if (root->type == REDIRECT) {
     if (!strcmp(root->op, "|")){
-      ;
+      int pipefd[2];
+      if (pipe(pipefd) != 0){
+        perror("error with pipe creation");
+      }
+      pid_t cpid = fork();
+      if (cpid == 0){ // дочерний процесс
+        close(pipefd[0]); // закрываем дискриптор для чтения для 1 команды
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+        execute_tree(root->left);
+        exit(0);
+      } else { // родительский процесс
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+        execute_tree(root->right);
+        wait(NULL);
+        return;
+      }
     }
   }
   return 0;
@@ -280,6 +302,6 @@ int main(){
   node* tree = parse(splited);
   print_tree(tree);
   printf("\n");
-  // execvp(command_main("git -v"), command_argv("git -v"));
+  // execvp(command_main("grep 'c'"), command_argv("grep 'c'"));
   execute_tree(tree);
 }
