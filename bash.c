@@ -37,7 +37,7 @@ node* parse(char** commands){
 }
 
 int is_redirect(const char* c){
-  return !strcmp(c, "|") || !strcmp(c, ">") || !strcmp(c, "<");
+  return !strcmp(c, "|") || !strcmp(c, ">") || !strcmp(c, "<") || !strcmp(c, "<<") || !strcmp(c, ">>");
 }
 
 node* parse_redirect_expr(int *i, char** commands){
