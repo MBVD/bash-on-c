@@ -150,6 +150,7 @@ char** split(const char* s){
         continue;
       }else{
         tmp[tmp_i++] = ' ';
+        continue;
       }
     }
     tmp[tmp_i++] = s[i];
