@@ -229,6 +229,14 @@ char** command_argv(const char* command) {
 
 int execute_command(const char* command) {
   int status;
+  if (!strcmp(command_main(command), "cd")){ // если команда cd
+    printf("hreeererere %s\n", command_argv(command)[1]);
+    if (chdir(command_argv(command)[1])){
+      printf("нет такйо дирректории \n");
+      return -1;
+    }
+    return 0;
+  }
   pid_t pid = fork();
   if (pid == 0) {
     execvp(command_main(command), command_argv(command));
