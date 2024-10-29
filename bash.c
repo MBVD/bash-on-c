@@ -324,15 +324,17 @@ int execute_tree(node* root) {
 }
 
 int main(){
-  char* s1 = readline();
-  char** splited = split(s1);
-  for (int i = 0; splited[i] != NULL; i++){
-    printf("[%s]", splited[i]);
+  while(1) {  
+    char* s1 = readline();
+    char** splited = split(s1);
+    for (int i = 0; splited[i] != NULL; i++){
+      printf("[%s]", splited[i]);
+    }
+    printf("\n");
+    node* tree = parse(splited);
+    print_tree(tree);
+    printf("\n");
+    // execvp(command_main("grep 'c'"), command_argv("grep 'c'"));
+    execute_tree(tree);
   }
-  printf("\n");
-  node* tree = parse(splited);
-  print_tree(tree);
-  printf("\n");
-  // execvp(command_main("grep 'c'"), command_argv("grep 'c'"));
-  execute_tree(tree);
 }
