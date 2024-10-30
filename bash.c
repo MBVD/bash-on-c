@@ -240,12 +240,14 @@ int execute_command(const char* command) {
   pid_t pid = fork();
   if (pid == 0) {
     execvp(command_main(command), command_argv(command));
+    fflush(STDOUT_FILENO);
     exit(EXIT_FAILURE);
   } else if (pid < 0) {
     perror("fork creation fail");
     return -1;
   } else {
     waitpid(pid, &status, 0);
+    printf("here\n");
     if (WIFEXITED(status)) {
       return WEXITSTATUS(status);
     } else {
@@ -273,8 +275,7 @@ int execute_tree(node* root) {
       } else {
         return left_status;
       }
-    } else if (!strcmp(root->op, ";")) {
-      execute_tree(root->left);
+    } else if (!strcmp(root->op, ";")) { 
       return execute_tree(root->right);
     }
   } else if (root->type == REDIRECT) {
@@ -332,17 +333,15 @@ int execute_tree(node* root) {
 }
 
 int main(){
-  while(1) {  
-    char* s1 = readline();
-    char** splited = split(s1);
-    for (int i = 0; splited[i] != NULL; i++){
-      printf("[%s]", splited[i]);
-    }
-    printf("\n");
-    node* tree = parse(splited);
-    print_tree(tree);
-    printf("\n");
-    // execvp(command_main("grep 'c'"), command_argv("grep 'c'"));
-    execute_tree(tree);
+  char* s1 = readline();
+  char** splited = split(s1);
+  for (int i = 0; splited[i] != NULL; i++){
+    printf("[%s]", splited[i]);
   }
+  printf("\n");
+  node* tree = parse(splited);
+  print_tree(tree);
+  printf("\n");
+  // execvp(command_main("grep 'c'"), command_argv("grep 'c'"));
+  execute_tree(tree);
 }
