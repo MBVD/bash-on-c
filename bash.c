@@ -37,6 +37,7 @@ node* parse_or_expr(int* i, char** commands);
 node* parse_and_expr(int* i, char** commands);
 node* parse_command_expr(int *i, char** commands);
 node* parse_redirect_expr(int* i, char** commands);
+node* parse_pipe_expr(int* i, char** commands);
 
 node* parse(char** commands){
   printf("start parsing \n");
@@ -45,18 +46,32 @@ node* parse(char** commands){
 }
 
 int is_redirect(const char* c){
-  return !strcmp(c, "|") || !strcmp(c, ">") || !strcmp(c, "<") || !strcmp(c, "<<") || !strcmp(c, ">>");
+  return !strcmp(c, ">") || !strcmp(c, "<") || !strcmp(c, "<<") || !strcmp(c, ">>");
 }
 
-node* parse_redirect_expr(int *i, char** commands){
-  printf("start > | parsing \n");
-  node* left = parse_continue_expr(i, commands);
-  printf("stop parsing ; \n");
-  while (commands[*i] != NULL && is_redirect(commands[*i])){
+node* parse_redirect_expr(int * i, char** commands) {
+  printf("start > parsing \n");
+  node* left = parse_pipe_expr(i, commands);
+  printf("stop parsing | \n");
+  while (commands[*i] != NULL && is_redirect(commands[*i])) {
     char* op = malloc(strlen(commands[*i]));
     strcpy(op, commands[*i]);
     (*i)++;
     node* right = parse_redirect_expr(i, commands);
+    left = create_node(REDIRECT, op, NULL, left, right);
+  }
+  return left;
+}
+
+node* parse_pipe_expr(int *i, char** commands){
+  printf("start | parsing \n");
+  node* left = parse_continue_expr(i, commands);
+  printf("stop parsing ; \n");
+  while (commands[*i] != NULL && !strcmp(commands[*i], "|")) {
+    char* op = malloc(strlen(commands[*i]));
+    strcpy(op, commands[*i]);
+    (*i)++;
+    node* right = parse_pipe_expr(i, commands);
     left = create_node(REDIRECT, op, NULL, left, right);
   }
   return left;
@@ -114,6 +129,15 @@ void print_tree(node* root){
   if (root -> type == OPERATION){
     printf("%s", root -> command);
   }
+}
+
+void free_tree(node* root) {
+  if (root == NULL){
+    return ;
+  }
+  free_tree(root->left);
+  free_tree(root->right);
+  free(root);
 }
 
 
@@ -177,7 +201,7 @@ char** split(const char* s){
 char* readline(){
   int n = BUF_MAX, i = 0, c;
   char* buf = (char*)malloc(n*sizeof(char));
-  while((c=getchar())!='\n'){
+  while((c=getchar())!='\n' && c != EOF){
     if (i == n-1){
       n*=2;
       buf = (char*)realloc(buf, n*sizeof(char));
@@ -233,7 +257,7 @@ int execute_command(const char* command) {
     printf("hreeererere %s\n", command_argv(command)[1]);
     if (chdir(command_argv(command)[1])){
       printf("нет такйо дирректории \n");
-      return -1;
+      return 1;
     }
     return 0;
   }
@@ -243,7 +267,7 @@ int execute_command(const char* command) {
     exit(EXIT_FAILURE);
   } else if (pid < 0) {
     perror("fork creation fail");
-    return -1;
+    return 1;
   } else {
     waitpid(pid, &status, 0);
     if (WIFEXITED(status)) {
@@ -289,7 +313,7 @@ int execute_tree(node* root) {
         dup2(pipefd[1], STDOUT_FILENO);
         close(pipefd[1]);
         execute_tree(root->left);
-        return -1;
+        exit(1);
       } else { // родительский процесс
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
@@ -303,11 +327,11 @@ int execute_tree(node* root) {
       pid_t cpid = fork();
       int status;
       if (cpid == 0){ // дочерний
-        int file = open(root->right->command, O_WRONLY | O_CREAT | O_TRUNC, 0644);;
-        printf("%d \n", file);
+        int file = open(root->right->command, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         dup2(file, STDOUT_FILENO);
         close(file);
         execute_tree(root->left);
+        exit(1);
       } else {
         execute_tree(root->right);
         waitpid(cpid, &status, 0);
@@ -334,15 +358,23 @@ int execute_tree(node* root) {
 }
 
 int main(){
-  char* s1 = readline();
-  char** splited = split(s1);
-  for (int i = 0; splited[i] != NULL; i++){
-    printf("[%s]", splited[i]);
-  }
-  printf("\n");
-  node* tree = parse(splited);
-  print_tree(tree);
-  printf("\n");
-  // execvp(command_main("grep 'c'"), command_argv("grep 'c'"));
-  execute_tree(tree);
+  // while(1){
+    char* s1 = readline();
+    printf("%s\n", s1);
+    char** splited = split(s1);
+    for (int i = 0; splited[i] != NULL; i++){
+      printf("[%s]", splited[i]);
+    }
+    printf("\n");
+    node* tree = parse(splited);
+    print_tree(tree);
+    printf("\n");
+    execute_tree(tree);
+    free(s1);
+    for (int i = 0; splited[i] != NULL; i++){
+      free(splited[i]);
+    }
+    free_tree(tree);
+    free(splited);
+  // }
 }
