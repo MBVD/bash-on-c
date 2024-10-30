@@ -240,14 +240,12 @@ int execute_command(const char* command) {
   pid_t pid = fork();
   if (pid == 0) {
     execvp(command_main(command), command_argv(command));
-    fflush(STDOUT_FILENO);
     exit(EXIT_FAILURE);
   } else if (pid < 0) {
     perror("fork creation fail");
     return -1;
   } else {
     waitpid(pid, &status, 0);
-    printf("here\n");
     if (WIFEXITED(status)) {
       return WEXITSTATUS(status);
     } else {
@@ -285,23 +283,25 @@ int execute_tree(node* root) {
         perror("error with pipe creation");
       }
       pid_t cpid = fork();
+      int status;
       if (cpid == 0){ // дочерний процесс
         close(pipefd[0]); // закрываем дискриптор для чтения для 1 команды
         dup2(pipefd[1], STDOUT_FILENO);
         close(pipefd[1]);
         execute_tree(root->left);
-        exit(1);
+        return -1;
       } else { // родительский процесс
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
         execute_tree(root->right);
-        wait(NULL);
-        return;
+        waitpid(cpid, &status, 0);
+        return status;
       }
     }
     if (!strcmp(root->op, ">")){
       pid_t cpid = fork();
+      int status;
       if (cpid == 0){ // дочерний
         int file = open(root->right->command, O_WRONLY | O_CREAT | O_TRUNC, 0644);;
         printf("%d \n", file);
@@ -310,12 +310,13 @@ int execute_tree(node* root) {
         execute_tree(root->left);
       } else {
         execute_tree(root->right);
-        wait(NULL);
-        return;
+        waitpid(cpid, &status, 0);
+        return status;
       }
     }
     if (!strcmp(root->op, "<")){
       pid_t cpid = fork();
+      int status;
       if (cpid == 0){ // дочерний
         int file = open(root->right->command, O_RDONLY, 0644);
         dup2(file, STDIN_FILENO);
@@ -324,8 +325,8 @@ int execute_tree(node* root) {
         exit(1);
       } else {
         execute_tree(root->right);
-        wait(NULL);
-        return;
+        waitpid(cpid, &status, 0);
+        return status;
       }
     }
   }
