@@ -32,7 +32,6 @@ job* create_job(pid_t pid, const char* command){
 }
 
 int push_job(job* jobs, pid_t pid, const char* command){
-  printf("calls push\n");
   job* tmp = create_job(pid, command);
   while(jobs -> next != NULL){
     jobs = jobs -> next;
@@ -309,7 +308,6 @@ char** command_argv(const char* command) {
 int execute_command(const char* command) {
   int status;
   if (!strcmp(command_main(command), "cd")){ // если команда cd
-    printf("hreeererere %s\n", command_argv(command)[1]);
     if (chdir(command_argv(command)[1])){
       printf("нет такйо дирректории \n");
       return 1;
@@ -317,7 +315,6 @@ int execute_command(const char* command) {
     return 0;
   }
   if (!strcmp(command_main(command), "jobs")){
-    printf("call jobs \n");
     print_jobs(jobs);
     return 0;
   }
