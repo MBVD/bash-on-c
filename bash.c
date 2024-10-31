@@ -201,6 +201,8 @@ char** split(const char* s){
 char* readline(){
   int n = BUF_MAX, i = 0, c;
   char* buf = (char*)malloc(n*sizeof(char));
+  fflush(stdin);
+  fflush(stdout);
   while((c=getchar())!='\n' && c != EOF){
     if (i == n-1){
       n*=2;
@@ -301,6 +303,9 @@ int execute_tree(node* root) {
       return execute_tree(root->right);
     }
   } else if (root->type == REDIRECT) {
+    int saved_stdin, saved_stdout;
+    saved_stdin = dup(STDIN_FILENO);
+    saved_stdout = dup(STDOUT_FILENO);
     if (!strcmp(root->op, "|")){
       int pipefd[2];
       if (pipe(pipefd) != 0){
@@ -320,6 +325,8 @@ int execute_tree(node* root) {
         close(pipefd[0]);
         execute_tree(root->right);
         waitpid(cpid, &status, 0);
+        dup2(saved_stdin, STDIN_FILENO);
+        dup2(saved_stdout, STDOUT_FILENO);
         return status;
       }
     }
@@ -335,6 +342,8 @@ int execute_tree(node* root) {
       } else {
         execute_tree(root->right);
         waitpid(cpid, &status, 0);
+        dup2(saved_stdin, STDIN_FILENO);
+        dup2(saved_stdout, STDOUT_FILENO);
         return status;
       }
     }
@@ -350,6 +359,8 @@ int execute_tree(node* root) {
       } else {
         execute_tree(root->right);
         waitpid(cpid, &status, 0);
+        dup2(saved_stdin, STDIN_FILENO);
+        dup2(saved_stdout, STDOUT_FILENO);
         return status;
       }
     }
@@ -358,7 +369,7 @@ int execute_tree(node* root) {
 }
 
 int main(){
-  // while(1){
+  while(1){
     char* s1 = readline();
     printf("%s\n", s1);
     char** splited = split(s1);
@@ -376,5 +387,5 @@ int main(){
     }
     free_tree(tree);
     free(splited);
-  // }
+  }
 }
