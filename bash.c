@@ -15,6 +15,59 @@ enum Type {
   LOGIC, OPERATION, REDIRECT
 };
 
+
+typedef struct job {
+  pid_t pid;
+  char* command;
+  struct job* next;
+} job;
+
+job* create_job(pid_t pid, const char* command){
+  job* tmp = malloc(sizeof(job));
+  tmp -> pid = pid;
+  tmp -> command = malloc(strlen(command) + 1);
+  strcpy(tmp->command, command);
+  tmp->next = NULL;
+  return tmp;
+}
+
+int push_job(job* jobs, pid_t pid, const char* command){
+  printf("calls push\n");
+  job* tmp = create_job(pid, command);
+  while(jobs -> next != NULL){
+    jobs = jobs -> next;
+  }
+  jobs -> next = tmp;
+  return 0;
+}
+
+job* jobs = NULL;
+
+int delete_job(job** jobs, pid_t pid){
+  job* head = *jobs;
+  job* tmp = * jobs;
+  job* prev = *jobs;
+  while (tmp->pid != pid){
+    prev = tmp;
+    tmp = tmp -> next;
+  }
+  if (tmp == head){
+    *jobs = head -> next;
+    return 0;
+  }
+  prev -> next = tmp -> next;
+  free(tmp);
+  return 0;
+}
+
+void print_jobs(job* jobs){
+  printf("PID | NAME \n");
+  while (jobs != NULL){
+    printf("%d | %s \n", jobs->pid, jobs -> command);
+    jobs = jobs -> next;
+  }
+  return;
+}
 typedef struct node {
   enum Type type;
   char* op;
@@ -263,6 +316,12 @@ int execute_command(const char* command) {
     }
     return 0;
   }
+  if (!strcmp(command_main(command), "jobs")){
+    printf("call jobs \n");
+    print_jobs(jobs);
+    return 0;
+  }
+  // if (!strcmp())
   pid_t pid = fork();
   if (pid == 0) {
     execvp(command_main(command), command_argv(command));
@@ -271,7 +330,9 @@ int execute_command(const char* command) {
     perror("fork creation fail");
     return 1;
   } else {
+    push_job(jobs, pid, command_main(command));
     waitpid(pid, &status, 0);
+    delete_job(&jobs, pid);
     if (WIFEXITED(status)) {
       return WEXITSTATUS(status);
     } else {
@@ -369,6 +430,7 @@ int execute_tree(node* root) {
 }
 
 int main(){
+  jobs = create_job(getpid(), "bash");
   while(1){
     char* s1 = readline();
     printf("%s\n", s1);
