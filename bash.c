@@ -340,7 +340,6 @@ int execute_command(const char* command, enum Ground ground) {
   pid_t pid = fork();
   if (pid == 0) {
     if (ground == BACKGROUND) {
-      // Перенаправляем стандартные потоки в /dev/null
       int dev_null = open("/dev/null", O_RDWR);
       dup2(dev_null, STDIN_FILENO);
       dup2(dev_null, STDOUT_FILENO);
