@@ -457,11 +457,7 @@ int execute_tree(node* root) {
       pid_t cpid = fork();
       int status;
       if (cpid == 0){ // дочерний
-        node* tmp = root -> right;
-        while(tmp->left != NULL){
-          tmp = tmp->left;
-        }
-        int file = open(tmp->command, O_RDONLY, 0644);
+        int file = open(root->right->command, O_RDONLY, 0644);
         dup2(file, STDIN_FILENO);
         close(file);
         execute_tree(root->left);
