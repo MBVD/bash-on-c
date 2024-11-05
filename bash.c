@@ -95,28 +95,47 @@ node* parse_continue_expr(int* i, char** commands);
 node* parse_or_expr(int* i, char** commands);
 node* parse_and_expr(int* i, char** commands);
 node* parse_command_expr(int *i, char** commands);
-node* parse_redirect_expr(int* i, char** commands);
+node* parse_redirect_left(int* i, char** commands);
+node* parse_redirect_right(int* i, char** commands);
 node* parse_pipe_expr(int* i, char** commands);
 
 node* parse(char** commands){
   printf("start parsing \n");
   int i = 0;
-  return parse_redirect_expr(&i, commands);
+  return parse_redirect_right(&i, commands);
 }
 
-int is_redirect(const char* c){
-  return !strcmp(c, ">") || !strcmp(c, "<") || !strcmp(c, "<<") || !strcmp(c, ">>");
+int is_redirect_left(const char* c){
+  return !strcmp(c, "<") || !strcmp(c, "<<");
 }
 
-node* parse_redirect_expr(int * i, char** commands) {
+int is_redirect_right(const char* c) {
+  return !strcmp(c, ">") || !strcmp(c, ">>");
+}
+
+node* parse_redirect_right(int *i, char** commands) {
   printf("start > parsing \n");
-  node* left = parse_pipe_expr(i, commands);
-  printf("stop parsing | \n");
-  while (commands[*i] != NULL && is_redirect(commands[*i])) {
+  node* left = parse_redirect_left(i, commands);
+  printf("stop parsing < \n");
+  while (commands[*i] != NULL && is_redirect_right(commands[*i])) {
     char* op = malloc(strlen(commands[*i]));
     strcpy(op, commands[*i]);
     (*i)++;
-    node* right = parse_redirect_expr(i, commands);
+    node* right = parse_redirect_right(i, commands);
+    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
+  }
+  return left;
+}
+
+node* parse_redirect_left(int * i, char** commands) {
+  printf("start < parsing \n");
+  node* left = parse_pipe_expr(i, commands);
+  printf("stop parsing | \n");
+  while (commands[*i] != NULL && is_redirect_left(commands[*i])) {
+    char* op = malloc(strlen(commands[*i]));
+    strcpy(op, commands[*i]);
+    (*i)++;
+    node* right = parse_redirect_left(i, commands);
     left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
   }
   return left;
@@ -438,7 +457,11 @@ int execute_tree(node* root) {
       pid_t cpid = fork();
       int status;
       if (cpid == 0){ // дочерний
-        int file = open(root->right->command, O_RDONLY, 0644);
+        node* tmp = root -> right;
+        while(tmp->left != NULL){
+          tmp = tmp->left;
+        }
+        int file = open(tmp->command, O_RDONLY, 0644);
         dup2(file, STDIN_FILENO);
         close(file);
         execute_tree(root->left);
