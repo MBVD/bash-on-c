@@ -1,5 +1,0 @@
-a.txt
-bash
-bash.c
-file2.txt
-file.txt
