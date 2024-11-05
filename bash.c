@@ -102,7 +102,7 @@ node* parse_pipe_expr(int* i, char** commands);
 node* parse(char** commands){
   printf("start parsing \n");
   int i = 0;
-  return parse_redirect_right(&i, commands);
+  return parse_continue_expr(&i, commands);
 }
 
 int is_redirect_left(const char* c){
