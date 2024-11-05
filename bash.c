@@ -7,12 +7,17 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #define BUF_MAX 256
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 
 enum Type {
   LOGIC, OPERATION, REDIRECT
+};
+
+enum Ground {
+  FOREGROUND, BACKGROUND
 };
 
 
@@ -69,14 +74,16 @@ void print_jobs(job* jobs){
 }
 typedef struct node {
   enum Type type;
+  enum Ground ground;
   char* op;
   char* command;
   struct node* left, *right;
 } node;
 
-node* create_node(enum Type type, const char* op, const char* command, node* left, node* right){
+node* create_node(enum Type type, const char* op, const char* command, node* left, node* right, enum Ground ground){
   node* tmp = (node*)malloc(sizeof(node));
   tmp -> type = type;
+  tmp -> ground = ground;
   tmp -> op = op;
   tmp -> command = command;
   tmp -> left = left;
@@ -110,7 +117,7 @@ node* parse_redirect_expr(int * i, char** commands) {
     strcpy(op, commands[*i]);
     (*i)++;
     node* right = parse_redirect_expr(i, commands);
-    left = create_node(REDIRECT, op, NULL, left, right);
+    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
   }
   return left;
 }
@@ -124,7 +131,7 @@ node* parse_pipe_expr(int *i, char** commands){
     strcpy(op, commands[*i]);
     (*i)++;
     node* right = parse_pipe_expr(i, commands);
-    left = create_node(REDIRECT, op, NULL, left, right);
+    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
   }
   return left;
 }
@@ -136,7 +143,7 @@ node* parse_continue_expr(int* i, char** commands){
   while(commands[*i] != NULL && !strcmp(commands[*i], ";")){
     (*i)++;
     node* right = parse_continue_expr(i, commands);
-    left = create_node(LOGIC, ";", NULL, left, right);
+    left = create_node(LOGIC, ";", NULL, left, right, FOREGROUND);
   }
   return left;
 }
@@ -148,7 +155,7 @@ node* parse_or_expr(int* i, char** commands){
   while(commands[*i] != NULL && !strcmp(commands[*i], "||")){
     (*i)++;
     node* right = parse_or_expr(i, commands);
-    left = create_node(LOGIC, "||", NULL, left, right);
+    left = create_node(LOGIC, "||", NULL, left, right, FOREGROUND);
   }
   return left;
 }
@@ -160,15 +167,19 @@ node* parse_and_expr(int* i, char** commands){
   while(commands[*i] != NULL && !strcmp(commands[*i], "&&")) {
     (*i)++;
     node* right = parse_and_expr(i, commands);
-    left = create_node(LOGIC, "&&", NULL, left, right);
+    left = create_node(LOGIC, "&&", NULL, left, right, FOREGROUND);
   }
   return left;
 }
 
 node* parse_command_expr(int *i, char** commands){
   printf("command here : %s \n", commands[*i]);
-  node* command_node = create_node(OPERATION, NULL, commands[*i], NULL, NULL);
+  node* command_node = create_node(OPERATION, NULL, commands[*i], NULL, NULL, FOREGROUND);
   (*i)++;
+  if (commands[*i] != NULL && !strcmp(commands[*i], "&")){
+    command_node -> ground = BACKGROUND;
+    (*i)++;
+  }
   return command_node;
 }
 
@@ -247,6 +258,8 @@ char** split(const char* s){
     array[array_i] = (char*)malloc(tmp_i);
     strcpy(array[array_i++], tmp);
   }
+  free(tmp);
+  array[array_i] = NULL;
   return array;
 }
 
@@ -305,7 +318,7 @@ char** command_argv(const char* command) {
   return argv;
 }
 
-int execute_command(const char* command) {
+int execute_command(const char* command, enum Ground ground) {
   int status;
   if (!strcmp(command_main(command), "cd")){ // если команда cd
     if (chdir(command_argv(command)[1])){
@@ -318,9 +331,22 @@ int execute_command(const char* command) {
     print_jobs(jobs);
     return 0;
   }
+  if (!strcmp(command_main(command), "kill")){
+    kill(atoi(command_argv(command)[1]), SIGKILL);
+    delete_job(&jobs, atoi(command_argv(command)[1]));
+    return 0;
+  }
   // if (!strcmp())
   pid_t pid = fork();
   if (pid == 0) {
+    if (ground == BACKGROUND) {
+      // Перенаправляем стандартные потоки в /dev/null
+      int dev_null = open("/dev/null", O_RDWR);
+      dup2(dev_null, STDIN_FILENO);
+      dup2(dev_null, STDOUT_FILENO);
+      dup2(dev_null, STDERR_FILENO);
+      close(dev_null);
+    }
     execvp(command_main(command), command_argv(command));
     exit(EXIT_FAILURE);
   } else if (pid < 0) {
@@ -328,8 +354,12 @@ int execute_command(const char* command) {
     return 1;
   } else {
     push_job(jobs, pid, command_main(command));
-    waitpid(pid, &status, 0);
-    delete_job(&jobs, pid);
+    if (ground == BACKGROUND){
+      printf("background job - %d \n", pid);
+    } else {
+      waitpid(pid, &status, 0);
+      delete_job(&jobs, pid);
+    }
     if (WIFEXITED(status)) {
       return WEXITSTATUS(status);
     } else {
@@ -342,7 +372,7 @@ int execute_tree(node* root) {
   if (root == NULL) return 0;
 
   if (root->type == OPERATION) {
-    return execute_command(root->command);
+    return execute_command(root->command, root->ground);
   } else if (root->type == LOGIC) {
     int left_status = execute_tree(root->left);
     if (!strcmp(root->op, "&&")) {
@@ -444,7 +474,7 @@ int main(){
     for (int i = 0; splited[i] != NULL; i++){
       free(splited[i]);
     }
-    free_tree(tree);
     free(splited);
+    free_tree(tree);
   }
 }
