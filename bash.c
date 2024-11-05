@@ -113,48 +113,6 @@ int is_redirect_right(const char* c) {
   return !strcmp(c, ">") || !strcmp(c, ">>");
 }
 
-node* parse_redirect_right(int *i, char** commands) {
-  printf("start > parsing \n");
-  node* left = parse_redirect_left(i, commands);
-  printf("stop parsing < \n");
-  while (commands[*i] != NULL && is_redirect_right(commands[*i])) {
-    char* op = malloc(strlen(commands[*i]));
-    strcpy(op, commands[*i]);
-    (*i)++;
-    node* right = parse_redirect_right(i, commands);
-    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
-  }
-  return left;
-}
-
-node* parse_redirect_left(int * i, char** commands) {
-  printf("start < parsing \n");
-  node* left = parse_pipe_expr(i, commands);
-  printf("stop parsing | \n");
-  while (commands[*i] != NULL && is_redirect_left(commands[*i])) {
-    char* op = malloc(strlen(commands[*i]));
-    strcpy(op, commands[*i]);
-    (*i)++;
-    node* right = parse_redirect_left(i, commands);
-    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
-  }
-  return left;
-}
-
-node* parse_pipe_expr(int *i, char** commands){
-  printf("start | parsing \n");
-  node* left = parse_continue_expr(i, commands);
-  printf("stop parsing ; \n");
-  while (commands[*i] != NULL && !strcmp(commands[*i], "|")) {
-    char* op = malloc(strlen(commands[*i]));
-    strcpy(op, commands[*i]);
-    (*i)++;
-    node* right = parse_pipe_expr(i, commands);
-    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
-  }
-  return left;
-}
-
 node* parse_continue_expr(int* i, char** commands){
   printf("start ; parsing \n");
   node* left = parse_or_expr(i, commands);
@@ -181,12 +139,54 @@ node* parse_or_expr(int* i, char** commands){
 
 node* parse_and_expr(int* i, char** commands){
   printf("start && parsing \n");
-  node* left = parse_command_expr(i, commands);
+  node* left = parse_pipe_expr(i, commands);
   printf("stop parsing command \n");
   while(commands[*i] != NULL && !strcmp(commands[*i], "&&")) {
     (*i)++;
     node* right = parse_and_expr(i, commands);
     left = create_node(LOGIC, "&&", NULL, left, right, FOREGROUND);
+  }
+  return left;
+}
+
+node* parse_pipe_expr(int *i, char** commands){
+  printf("start | parsing \n");
+  node* left = parse_redirect_right(i, commands);
+  printf("stop parsing ; \n");
+  while (commands[*i] != NULL && !strcmp(commands[*i], "|")) {
+    char* op = malloc(strlen(commands[*i]));
+    strcpy(op, commands[*i]);
+    (*i)++;
+    node* right = parse_pipe_expr(i, commands);
+    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
+  }
+  return left;
+}
+
+node* parse_redirect_right(int *i, char** commands) {
+  printf("start > parsing \n");
+  node* left = parse_redirect_left(i, commands);
+  printf("stop parsing < \n");
+  while (commands[*i] != NULL && is_redirect_right(commands[*i])) {
+    char* op = malloc(strlen(commands[*i]));
+    strcpy(op, commands[*i]);
+    (*i)++;
+    node* right = parse_redirect_right(i, commands);
+    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
+  }
+  return left;
+}
+
+node* parse_redirect_left(int * i, char** commands) {
+  printf("start < parsing \n");
+  node* left = parse_command_expr(i, commands);
+  printf("stop parsing | \n");
+  while (commands[*i] != NULL && is_redirect_left(commands[*i])) {
+    char* op = malloc(strlen(commands[*i]));
+    strcpy(op, commands[*i]);
+    (*i)++;
+    node* right = parse_redirect_left(i, commands);
+    left = create_node(REDIRECT, op, NULL, left, right, FOREGROUND);
   }
   return left;
 }
