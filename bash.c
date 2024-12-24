@@ -27,6 +27,12 @@ typedef struct job {
   struct job* next;
 } job;
 
+void signal_handler(int signal) {
+  pid_t pd = getppid();
+  if (pd >0 && signal == SIGINT)
+    kill(pd, SIGINT);
+}
+
 job* create_job(pid_t pid, const char* command){
   job* tmp = malloc(sizeof(job));
   tmp -> pid = pid;
@@ -72,6 +78,7 @@ void print_jobs(job* jobs){
   }
   return;
 }
+
 typedef struct node {
   enum Type type;
   enum Ground ground;
@@ -355,7 +362,10 @@ int execute_command(const char* command, enum Ground ground) {
     delete_job(&jobs, atoi(command_argv(command)[1]));
     return 0;
   }
-  // if (!strcmp())
+  if (!strcmp(command_main(command), "exit")) {
+    exit(0);
+  }
+
   pid_t pid = fork();
   if (pid == 0) {
     if (ground == BACKGROUND) {
@@ -375,6 +385,7 @@ int execute_command(const char* command, enum Ground ground) {
     if (ground == BACKGROUND){
       printf("background job - %d \n", pid);
     } else {
+      signal(SIGINT, signal_handler);
       waitpid(pid, &status, 0);
       delete_job(&jobs, pid);
     }
@@ -477,8 +488,12 @@ int execute_tree(node* root) {
 int main(){
   jobs = create_job(getpid(), "bash");
   while(1){
+    signal(SIGINT, signal_handler);
     char* s1 = readline();
     printf("%s\n", s1);
+    if (!strcmp(s1, "")) {
+      continue;
+    }
     char** splited = split(s1);
     for (int i = 0; splited[i] != NULL; i++){
       printf("[%s]", splited[i]);
