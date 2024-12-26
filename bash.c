@@ -70,6 +70,26 @@ int delete_job(job** jobs, pid_t pid){
   return 0;
 }
 
+
+pid_t last_job() {
+  job* tmp = jobs;
+  while (tmp -> next != NULL){
+    tmp = tmp -> next;
+  } 
+  return tmp -> pid;
+}
+
+
+int fg() {  
+  pid_t pid = last_job();
+  printf("%d \n", pid);
+  kill(pid, SIGCONT);
+  int status;
+  waitpid(pid, &status, 0);
+  delete_job(&jobs, pid);
+  return WEXITSTATUS(status) ? WEXITSTATUS(status) : -1; 
+}
+
 void print_jobs(job* jobs){
   printf("PID | NAME \n");
   while (jobs != NULL){
@@ -364,6 +384,9 @@ int execute_command(const char* command, enum Ground ground) {
   }
   if (!strcmp(command_main(command), "exit")) {
     exit(0);
+  }
+  if (!strcmp(command_main(command), "fg")) {
+    return fg();
   }
 
   pid_t pid = fork();
