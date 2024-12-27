@@ -73,6 +73,9 @@ int delete_job(job** jobs, pid_t pid){
 
 pid_t last_job() {
   job* tmp = jobs;
+  if (tmp == NULL){
+    return 0;
+  }
   while (tmp -> next != NULL){
     tmp = tmp -> next;
   } 
@@ -82,7 +85,10 @@ pid_t last_job() {
 
 int fg() {  
   pid_t pid = last_job();
-  printf("%d \n", pid);
+  if (pid == 0) {
+    return 1;
+  }
+  // printf("%d \n", pid);
   kill(pid, SIGCONT);
   int status;
   waitpid(pid, &status, 0);
@@ -127,7 +133,7 @@ node* parse_redirect_right(int* i, char** commands);
 node* parse_pipe_expr(int* i, char** commands);
 
 node* parse(char** commands){
-  printf("start parsing \n");
+  // printf("start parsing \n");
   int i = 0;
   return parse_continue_expr(&i, commands);
 }
@@ -141,9 +147,9 @@ int is_redirect_right(const char* c) {
 }
 
 node* parse_continue_expr(int* i, char** commands){
-  printf("start ; parsing \n");
+  // printf("start ; parsing \n");
   node* left = parse_or_expr(i, commands);
-  printf("stop parsing || \n");
+  // printf("stop parsing || \n");
   while(commands[*i] != NULL && !strcmp(commands[*i], ";")){
     (*i)++;
     node* right = parse_continue_expr(i, commands);
@@ -153,9 +159,9 @@ node* parse_continue_expr(int* i, char** commands){
 }
 
 node* parse_or_expr(int* i, char** commands){
-  printf("start || parsing \n");
+  // printf("start || parsing \n");
   node* left = parse_and_expr(i, commands);
-  printf("stop parsing && \n");
+  // printf("stop parsing && \n");
   while(commands[*i] != NULL && !strcmp(commands[*i], "||")){
     (*i)++;
     node* right = parse_or_expr(i, commands);
@@ -165,9 +171,9 @@ node* parse_or_expr(int* i, char** commands){
 }
 
 node* parse_and_expr(int* i, char** commands){
-  printf("start && parsing \n");
+  // printf("start && parsing \n");
   node* left = parse_pipe_expr(i, commands);
-  printf("stop parsing command \n");
+  // printf("stop parsing command \n");
   while(commands[*i] != NULL && !strcmp(commands[*i], "&&")) {
     (*i)++;
     node* right = parse_and_expr(i, commands);
@@ -176,10 +182,11 @@ node* parse_and_expr(int* i, char** commands){
   return left;
 }
 
+
 node* parse_pipe_expr(int *i, char** commands){
-  printf("start | parsing \n");
+  // printf("start | parsing \n");
   node* left = parse_redirect_right(i, commands);
-  printf("stop parsing ; \n");
+  // printf("stop parsing ; \n");
   while (commands[*i] != NULL && !strcmp(commands[*i], "|")) {
     char* op = malloc(strlen(commands[*i]));
     strcpy(op, commands[*i]);
@@ -191,9 +198,9 @@ node* parse_pipe_expr(int *i, char** commands){
 }
 
 node* parse_redirect_right(int *i, char** commands) {
-  printf("start > parsing \n");
+  // printf("start > parsing \n");
   node* left = parse_redirect_left(i, commands);
-  printf("stop parsing < \n");
+  // printf("stop parsing < \n");
   while (commands[*i] != NULL && is_redirect_right(commands[*i])) {
     char* op = malloc(strlen(commands[*i]));
     strcpy(op, commands[*i]);
@@ -205,9 +212,9 @@ node* parse_redirect_right(int *i, char** commands) {
 }
 
 node* parse_redirect_left(int * i, char** commands) {
-  printf("start < parsing \n");
+  // printf("start < parsing \n");
   node* left = parse_command_expr(i, commands);
-  printf("stop parsing | \n");
+  // printf("stop parsing | \n");
   while (commands[*i] != NULL && is_redirect_left(commands[*i])) {
     char* op = malloc(strlen(commands[*i]));
     strcpy(op, commands[*i]);
@@ -219,7 +226,11 @@ node* parse_redirect_left(int * i, char** commands) {
 }
 
 node* parse_command_expr(int *i, char** commands){
-  printf("command here : %s \n", commands[*i]);
+  // printf("command here : %s \n", commands[*i]);
+  if (commands[*i] == NULL) {
+    (*i)++;
+    return NULL;
+  }
   node* command_node = create_node(OPERATION, NULL, commands[*i], NULL, NULL, FOREGROUND);
   (*i)++;
   if (commands[*i] != NULL && !strcmp(commands[*i], "&")){
@@ -230,6 +241,9 @@ node* parse_command_expr(int *i, char** commands){
 }
 
 void print_tree(node* root){
+  if (root == NULL){
+    return;
+  }
   if (root -> type == LOGIC || root -> type == REDIRECT){
     print_tree(root->left);
     printf(" %s ", root -> op);
@@ -275,7 +289,7 @@ char** split(const char* s){
   char* tmp = malloc(tmp_size);
   int tmp_i = 0;
   for (int i = 0; s[i] != '\0'; i++){
-    if ((is_spec(s[i]) && !is_spec(tmp[0])) || (is_spec(tmp[0]) && !is_spec(s[i]))){
+    if (i != 0 && (is_spec(s[i]) && !is_spec(tmp[0])) || (is_spec(tmp[0]) && !is_spec(s[i])) || (tmp_i > 0 && tmp[0] == ';') || (tmp_i > 1 && (tmp[0] == '|' || tmp[0] == '&' || tmp[0] == '>' || tmp[0] == '<'))){
       tmp[tmp_i] = '\0';
       array[array_i] = (char*)malloc(tmp_i);
       strcpy(array[array_i++], tmp);
@@ -308,6 +322,28 @@ char** split(const char* s){
   array[array_i] = NULL;
   return array;
 }
+
+int is_spec_expr(const char* s){
+  return !strcmp(s, "||") || !strcmp(s, "&&") || !strcmp(s, ">>") || !strcmp(s, ">") || !strcmp(s, "|") || !strcmp(s, "<") || !strcmp(s, ";");
+}
+
+int is_syntax_error(char** splited){
+  int prev_is_command = 0, prev_is_spec = 0;
+  for (int i = 0; splited[i] != NULL; i++){
+    if (is_spec_expr(splited[i])){
+      if (!prev_is_command || prev_is_spec){ // ошибка перед спец символом должна быть команда
+        return -1;
+      }
+      if (strcmp(splited[i], ";") && strcmp(splited[i], "&") && splited[i + 1] == NULL){
+        return -1;
+      }
+    }
+
+    prev_is_command = !is_spec_expr(splited[i]);
+    prev_is_spec = is_spec_expr(splited[i]);
+  }
+}
+
 
 char* readline(){
   int n = BUF_MAX, i = 0, c;
@@ -409,6 +445,8 @@ int execute_command(const char* command, enum Ground ground) {
       printf("background job - %d \n", pid);
     } else {
       signal(SIGINT, signal_handler);
+      signal(SIGQUIT, signal_handler);
+      signal(SIGTSTP, signal_handler);
       waitpid(pid, &status, 0);
       delete_job(&jobs, pid);
     }
@@ -439,7 +477,7 @@ int execute_tree(node* root) {
       } else {
         return left_status;
       }
-    } else if (!strcmp(root->op, ";")) { 
+    } else if (!strcmp(root->op, ";")) {
       return execute_tree(root->right);
     }
   } else if (root->type == REDIRECT) {
@@ -487,6 +525,24 @@ int execute_tree(node* root) {
         return status;
       }
     }
+    if (!strcmp(root->op, ">>")){
+      pid_t cpid = fork();
+      int status;
+      if (cpid == 0){ // дочерний
+        int file = open(root->right->command, O_WRONLY | O_APPEND | O_CREAT, 0644);
+        dup2(file, STDOUT_FILENO);
+        close(file);
+        execute_tree(root->left);
+        exit(1);
+      } else {
+        execute_tree(root->right);
+        waitpid(cpid, &status, 0);
+        dup2(saved_stdin, STDIN_FILENO);
+        dup2(saved_stdout, STDOUT_FILENO);
+        return status;
+      }
+    }
+
     if (!strcmp(root->op, "<")){
       pid_t cpid = fork();
       int status;
@@ -512,19 +568,24 @@ int main(){
   jobs = create_job(getpid(), "bash");
   while(1){
     signal(SIGINT, signal_handler);
+    signal(SIGQUIT, signal_handler);
+    signal(SIGTSTP, signal_handler);
     char* s1 = readline();
-    printf("%s\n", s1);
+    // printf("%s\n", s1);
     if (!strcmp(s1, "")) {
       continue;
     }
     char** splited = split(s1);
-    for (int i = 0; splited[i] != NULL; i++){
-      printf("[%s]", splited[i]);
+    // for (int i = 0; splited[i] != NULL; i++){
+    //   printf("[%s]", splited[i]);
+    // }
+    int flag = is_syntax_error(splited);
+    if (flag != 0){
+      printf("you have syntx error \n");
+      free(s1);
+      continue;
     }
-    printf("\n");
     node* tree = parse(splited);
-    print_tree(tree);
-    printf("\n");
     execute_tree(tree);
     free(s1);
     for (int i = 0; splited[i] != NULL; i++){
