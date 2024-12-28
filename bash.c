@@ -505,7 +505,7 @@ int execute_tree(node* root) {
         waitpid(cpid, &status, 0);
         dup2(saved_stdin, STDIN_FILENO);
         dup2(saved_stdout, STDOUT_FILENO);
-        return status;
+        return WEXITSTATUS(status) ? 0 : -1;
       }
     }
     if (!strcmp(root->op, ">")){
@@ -521,7 +521,7 @@ int execute_tree(node* root) {
         waitpid(cpid, &status, 0);
         dup2(saved_stdin, STDIN_FILENO);
         dup2(saved_stdout, STDOUT_FILENO);
-        return status;
+        return WEXITSTATUS(status) ? 0 : -1; ;
       }
     }
     if (!strcmp(root->op, ">>")){
@@ -537,7 +537,7 @@ int execute_tree(node* root) {
         waitpid(cpid, &status, 0);
         dup2(saved_stdin, STDIN_FILENO);
         dup2(saved_stdout, STDOUT_FILENO);
-        return status;
+        return WEXITSTATUS(status) ? 0 : -1; ;
       }
     }
 
@@ -554,7 +554,7 @@ int execute_tree(node* root) {
         waitpid(cpid, &status, 0);
         dup2(saved_stdin, STDIN_FILENO);
         dup2(saved_stdout, STDOUT_FILENO);
-        return status;
+        return WEXITSTATUS(status) ? 0 : -1; ;
       }
     }
   }
