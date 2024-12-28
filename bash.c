@@ -518,7 +518,6 @@ int execute_tree(node* root) {
         execute_tree(root->left);
         exit(1);
       } else {
-        execute_tree(root->right);
         waitpid(cpid, &status, 0);
         dup2(saved_stdin, STDIN_FILENO);
         dup2(saved_stdout, STDOUT_FILENO);
@@ -535,7 +534,6 @@ int execute_tree(node* root) {
         execute_tree(root->left);
         exit(1);
       } else {
-        execute_tree(root->right);
         waitpid(cpid, &status, 0);
         dup2(saved_stdin, STDIN_FILENO);
         dup2(saved_stdout, STDOUT_FILENO);
@@ -553,7 +551,6 @@ int execute_tree(node* root) {
         execute_tree(root->left);
         exit(1);
       } else {
-        execute_tree(root->right);
         waitpid(cpid, &status, 0);
         dup2(saved_stdin, STDIN_FILENO);
         dup2(saved_stdout, STDOUT_FILENO);
